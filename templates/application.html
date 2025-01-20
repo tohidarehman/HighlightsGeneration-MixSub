@@ -12,19 +12,26 @@
         <main id="Main">
             <form action="/Api/Generate" method="post" id="HighlightGenerationForm">
                 <label for="PaperContent">Paper Content</label>
-                <textarea name="PaperContent" id="PaperContent" rows="10" title="Paper Content"></textarea>
+                <textarea
+                    name="PaperContent"
+                    id="PaperContent"
+                    rows="10"
+                    title="Paper Content"
+                    minlength="1"
+                    required
+                ></textarea>
 
                 <label for="PreferredModel">Select Preferred Model</label>
-                <select name="PreferredModel" id="PreferredModel">
+                <select name="PreferredModel" id="PreferredModel" required>
                     {%- for Model in Models %}
-                    <option value="{{ Model.hf_model_id }}" data-task="{{ Model.task }}">
+                    <option value="{{ Model.hf_model_id }}" data-task="{{ Model.task.value }}">
                         {{ Model.display_name }}
                     </option>
                     {%- endfor %}
                 </select>
 
                 <label for="MaximumTokens">Maximum Tokens</label>
-                <input type="number" name="MaximumTokens" id="MaximumTokens" min="1" value="100" step="1" />
+                <input type="number" name="MaximumTokens" id="MaximumTokens" min="1" value="100" step="1" required />
 
                 <input
                     type="submit"

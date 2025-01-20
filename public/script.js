@@ -36,7 +36,7 @@ highlightGenerationForm.addEventListener('submit', async function (event) {
         paper_content: data.get('PaperContent')?.toString(),
         preferred_model: data.get('PreferredModel')?.toString(),
         maximum_tokens: parseInt(data.get('MaximumTokens')?.toString() || '1', 10),
-        model_task: modelTask,
+        inference_task: modelTask,
     };
 
     try {
