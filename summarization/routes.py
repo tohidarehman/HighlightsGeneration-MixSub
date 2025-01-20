@@ -1,85 +1,96 @@
-import fastapi, fastapi.responses
-import huggingface_hub, pydantic, os
+from fastapi import APIRouter, HTTPException, status, Request
+from fastapi.templating import Jinja2Templates
+from fastapi.responses import HTMLResponse
+
+from fastapi_utils.cbv import cbv
+import huggingface_hub
+import os
+import re
+import sys
+from .models import (
+    SummarizationRequest,
+    SummarizationResponse,
+    AvailableModel,
+)
+
+apis_router = APIRouter(prefix="/api")
+view_router = APIRouter()  # This is mounted with the root route i.e. '/'
 
 
-api_router = fastapi.APIRouter(prefix="/api")
+@cbv(apis_router)
+class ApisCBV:
+    def __init__(self):
+        self.__timeout_in_seconds = 180
+        self.__authorization_token = os.getenv("HF_TOKEN")
+
+    def remove_comma_after_full_stop(self, text: str):
+        return re.sub(r"\.\;", ".", text)
+
+    @apis_router.post("/generate")
+    def summarize(self, body: SummarizationRequest) -> SummarizationResponse:
+        if self.__authorization_token is None:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="HuggingFace Inference Endpoint Token Missing",
+            )
+
+        input_text = body.paper_content
+        model_name = body.preferred_model
+        maximum_tokens = body.maximum_tokens
+
+        prefix = "summarize: "
+        text_with_prefix = prefix + input_text
+
+        try:
+            llm_client = huggingface_hub.InferenceClient(
+                model=model_name,
+                timeout=self.__timeout_in_seconds,
+                token=self.__authorization_token,
+            )
+            op = llm_client.text_generation(
+                model=model_name,
+                prompt=text_with_prefix,
+                max_new_tokens=maximum_tokens,
+                do_sample=False,
+                return_full_text=False,
+                details=True,
+            )
+            generated_text = self.remove_comma_after_full_stop(
+                op.generated_text
+            )
+        except Exception as err:
+            print(err.__repr__(), file=sys.stderr)
+            generated_text = err.__repr__()
+
+        return SummarizationResponse(output=generated_text)
 
 
-@api_router.get("/available-models")
-def available_models():
-    available_models_list = [
-        {
-            "modelId": "TRnlp/BART-base-MixSub-TS",
-            "displayName": "BART-base-MixSub-TS",
-        },
-        {
-            "modelId": "TRnlp/T5-base-MixSub-TS",
-            "displayName": "T5-base-MixSub-TS",
-        },
-        #{
-            #"modelId": "TRnlp/LLAMA-3-8B-TS-MixSub",
-            #"displayName": "LLAMA-3-8B-TS-MixSub",
-        #},
-    ]
+@cbv(view_router)
+class ViewCBV:
+    templates = Jinja2Templates("templates")
 
-    return {"models": available_models_list}
-
-
-class SummarizationRequest(pydantic.BaseModel):
-    elaborate_text: str
-    summarization_model: str
-    maximum_tokens: int
-    use_huggingface_model: bool
-
-
-@api_router.post("/summarize")
-def summarize(request: SummarizationRequest):
-    input_text = request.elaborate_text
-    model_name = request.summarization_model
-    maximum_tokens = request.maximum_tokens
-
-    prefix = "summarize: "
-    text_with_prefix = prefix + input_text
-
-    timeout_in_seconds = 180
-    authorization_token = os.getenv("HF_TOKEN")
-    if authorization_token is None:
-        return {"output": "no authorization token provided. contact administrator."}
-
-    llm_client = huggingface_hub.InferenceClient(
-        model=model_name,
-        timeout=timeout_in_seconds,
-        token=authorization_token,
+    available_models = (
+        AvailableModel(
+            hf_model_id="TRnlp/BART-base-MixSub-TS",
+            display_name="BART-base-MixSub-TS",
+        ),
+        AvailableModel(
+            hf_model_id="TRnlp/T5-base-MixSub-TS",
+            display_name="T5-base-MixSub-TS",
+        ),
+        AvailableModel(
+            hf_model_id="facebook/bart-large-cnn",
+            display_name="facebook/bart-large-cnn",
+        ),
     )
 
-    try:
-        generated_text = llm_client.text_generation(
-            model=model_name,
-            prompt=text_with_prefix,
-            max_new_tokens=maximum_tokens,
-            do_sample=False,
-            return_full_text=False,
+    @view_router.get("/", response_class=HTMLResponse)
+    def home(self, request: Request):
+        return self.templates.TemplateResponse(
+            request,
+            "application.html",
+            {
+                "PageHeading": "Research Highlight Generation",
+                "Models": self.available_models,
+            },
         )
-    except Exception as err:
-        generated_text = err.__repr__()
-
-    # tokenizer = transformers.AutoTokenizer.from_pretrained(model_name)
-    # model: transformers.PreTrainedModel = transformers.AutoModelForSeq2SeqLM.from_pretrained(model_name)
-    # inputs = tokenizer(
-    #     text_with_prefix,
-    #     return_tensors="pt",
-    #     max_length=512,
-    #     truncation=True,
-    #     padding=True,
-    # )
-    # predictions = model.generate(
-    #     input_ids=inputs["input_ids"],
-    #     attention_mask=inputs["attention_mask"],
-    #     max_length=maximum_tokens,
-    #     num_beams=4,
-    #     do_sample=False,
-    #     min_length=3,
-    # )
-    # generated_text = tokenizer.decode(predictions[0], skip_special_tokens=True)
-
-    return {"output": generated_text}
