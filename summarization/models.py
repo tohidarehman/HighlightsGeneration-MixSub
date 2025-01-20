@@ -1,11 +1,17 @@
 from fastapi_utils.api_model import APIModel
+from enum import Enum
+
+
+class ModelTask(str, Enum):
+    TEXT_GENERATION = "text-generation"
+    SUMMARIZATION = "summarization"
 
 
 class SummarizationRequest(APIModel):
     paper_content: str
     preferred_model: str
     maximum_tokens: int
-    model_task: str
+    inference_task: ModelTask
 
 
 class SummarizationResponse(APIModel):
