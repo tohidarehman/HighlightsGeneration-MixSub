@@ -60,7 +60,7 @@ class ApisCBV:
             parameters = {
                 "max_new_tokens": maximum_tokens,
                 "do_sample": False,
-                "return_full_text": False,
+                # "return_full_text": False,
             }
         else:
             parameters = {}
