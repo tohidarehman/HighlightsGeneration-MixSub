@@ -95,8 +95,8 @@ class ViewCBV:
 
     available_models = (
         AvailableModel(
-            hf_model_id="meta-llama/Llama-3.2-3B",
-            display_name="meta-llama/Llama-3.2-3B",
+            hf_model_id="TRnlp/LLAMA-3-8B-TS-MixSub",
+            display_name="LLAMA-3-8B-TS-MixSub",
             task=ModelTask.TEXT_GENERATION,
         ),
         AvailableModel(
@@ -107,16 +107,6 @@ class ViewCBV:
         AvailableModel(
             hf_model_id="TRnlp/T5-base-MixSub-TS",
             display_name="T5-base-MixSub-TS",
-            task=ModelTask.TEXT_GENERATION,
-        ),
-        AvailableModel(
-            hf_model_id="facebook/bart-large-cnn",
-            display_name="facebook/bart-large-cnn",
-            task=ModelTask.SUMMARIZATION,
-        ),
-        AvailableModel(
-            hf_model_id="google/gemma-2-2b-it",
-            display_name="google/gemma-2-2b-it",
             task=ModelTask.TEXT_GENERATION,
         ),
     )
