@@ -11,7 +11,7 @@
         <h2 id="PageTitle">{{ PageHeading | default('NLP Task') }}</h2>
         <main id="Main">
             <form action="/Api/Generate" method="post" id="HighlightGenerationForm">
-                <label for="PaperContent">Paper Content</label>
+                <label for="PaperContent">Give Your Abstract</label>
                 <textarea
                     name="PaperContent"
                     id="PaperContent"
@@ -41,7 +41,7 @@
                 />
             </form>
             <section>
-                <h3 id="GeneratedHighlightTitle">Generated Highlight</h3>
+                <h3 id="GeneratedHighlightTitle">Generated Highlights</h3>
                 <p id="GeneratedHighlight">Not Generated Yet</p>
             </section>
         </main>
