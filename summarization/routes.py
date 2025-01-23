@@ -13,7 +13,7 @@ def available_models():
             "displayName": "BART-base-MixSub-TS",
         },
         {
-            "modelId": "TRnlp/T5-base-MixSub-TS",
+            "modelId": "TRnlp/t5-check",
             "displayName": "T5-base-MixSub-TS",
         },
         #{
