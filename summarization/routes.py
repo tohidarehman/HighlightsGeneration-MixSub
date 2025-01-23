@@ -120,7 +120,6 @@ class ViewCBV:
             task=ModelTask.TEXT_GENERATION,
         ),
     )
-
     @view_router.get("/", response_class=HTMLResponse)
     def home(self, request: Request):
         return self.templates.TemplateResponse(
