@@ -1,85 +1,132 @@
-import fastapi, fastapi.responses
-import huggingface_hub, pydantic, os
+from fastapi import APIRouter, HTTPException, status, Request
+from fastapi.templating import Jinja2Templates
+from fastapi.responses import HTMLResponse
+
+from fastapi_utils.cbv import cbv
+import os
+import re
+import sys
+import requests
+from .models import (
+    SummarizationRequest,
+    SummarizationResponse,
+    AvailableModel,
+    ModelTask,
+)
 
 
-api_router = fastapi.APIRouter(prefix="/api")
+apis_router = APIRouter(prefix="/api")
+view_router = APIRouter()  # This is mounted with the root route i.e. '/'
 
 
-@api_router.get("/available-models")
-def available_models():
-    available_models_list = [
-        {
-            "modelId": "TRnlp/BART-base-MixSub-TS",
-            "displayName": "BART-base-MixSub-TS",
-        },
-        {
-            "modelId": "TRnlp/t5-check",
-            "displayName": "T5-base-MixSub-TS",
-        },
-        #{
-            #"modelId": "TRnlp/LLAMA-3-8B-TS-MixSub",
-            #"displayName": "LLAMA-3-8B-TS-MixSub",
-        #},
-    ]
+@cbv(apis_router)
+class ApisCBV:
+    def __init__(self):
+        self.__timeout_in_seconds = 180
+        self.__authorization_token = os.getenv("HF_TOKEN")
 
-    return {"models": available_models_list}
+    def remove_comma_after_full_stop(self, text: str):
+        return re.sub(r"\.\;", ".", text)
 
-
-class SummarizationRequest(pydantic.BaseModel):
-    elaborate_text: str
-    summarization_model: str
-    maximum_tokens: int
-    use_huggingface_model: bool
-
-
-@api_router.post("/summarize")
-def summarize(request: SummarizationRequest):
-    input_text = request.elaborate_text
-    model_name = request.summarization_model
-    maximum_tokens = request.maximum_tokens
-
-    prefix = "summarize: "
-    text_with_prefix = prefix + input_text
-
-    timeout_in_seconds = 180
-    authorization_token = os.getenv("HF_TOKEN")
-    if authorization_token is None:
-        return {"output": "no authorization token provided. contact administrator."}
-
-    llm_client = huggingface_hub.InferenceClient(
-        model=model_name,
-        timeout=timeout_in_seconds,
-        token=authorization_token,
-    )
-
-    try:
-        generated_text = llm_client.text_generation(
-            model=model_name,
-            prompt=text_with_prefix,
-            max_new_tokens=maximum_tokens,
-            do_sample=False,
-            return_full_text=False,
+    def query(self, model_name: str, payload):
+        api_url = f"https://api-inference.huggingface.co/models/{model_name}"
+        headers = {
+            "Authorization": f"Bearer {self.__authorization_token}",
+        }
+        response = requests.post(
+            api_url,
+            headers=headers,
+            json=payload,
+            timeout=self.__timeout_in_seconds,
         )
-    except Exception as err:
-        generated_text = err.__repr__()
+        return response.json()
 
-    # tokenizer = transformers.AutoTokenizer.from_pretrained(model_name)
-    # model: transformers.PreTrainedModel = transformers.AutoModelForSeq2SeqLM.from_pretrained(model_name)
-    # inputs = tokenizer(
-    #     text_with_prefix,
-    #     return_tensors="pt",
-    #     max_length=512,
-    #     truncation=True,
-    #     padding=True,
-    # )
-    # predictions = model.generate(
-    #     input_ids=inputs["input_ids"],
-    #     attention_mask=inputs["attention_mask"],
-    #     max_length=maximum_tokens,
-    #     num_beams=4,
-    #     do_sample=False,
-    #     min_length=3,
-    # )
-    # generated_text = tokenizer.decode(predictions[0], skip_special_tokens=True)
+    @apis_router.post("/generate")
+    def summarize(self, body: SummarizationRequest) -> SummarizationResponse:
+        if self.__authorization_token is None:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="HuggingFace Inference Endpoint Token Missing",
+            )
 
-    return {"output": generated_text}
+        input_text = body.paper_content
+        model_name = body.preferred_model
+        maximum_tokens = body.maximum_tokens
+
+        prefix = "Summarize the following article: "
+        text_with_prefix = prefix + input_text
+
+        if body.inference_task == ModelTask.TEXT_GENERATION:
+            parameters = {
+                "max_new_tokens": maximum_tokens,
+                "do_sample": False,
+                "return_full_text": False,
+            }
+        else:
+            parameters = {}
+
+        try:
+            resp = self.query(
+                model_name,
+                {
+                    "inputs": text_with_prefix,
+                    "parameters": parameters,
+                },
+            )
+
+            if body.inference_task == ModelTask.SUMMARIZATION:
+                out_text = resp[0]["summary_text"]
+            elif body.inference_task == ModelTask.TEXT_GENERATION:
+                out_text = resp[0]["generated_text"]
+            else:
+                out_text = "`summary_text` or `generated_text` not present."
+
+        except Exception as err:
+            print("Error Occurred: ", err.__repr__(), file=sys.stderr)
+            out_text = err.__repr__()
+
+        generated_text = self.remove_comma_after_full_stop(out_text)
+        return SummarizationResponse(output=generated_text)
+
+
+@cbv(view_router)
+class ViewCBV:
+    templates = Jinja2Templates("templates")
+
+    available_models = (
+        AvailableModel(
+            hf_model_id="meta-llama/Llama-3.2-3B",
+            display_name="meta-llama/Llama-3.2-3B",
+            task=ModelTask.TEXT_GENERATION,
+        ),
+        AvailableModel(
+            hf_model_id="TRnlp/BART-base-MixSub-TS",
+            display_name="BART-base-MixSub-TS",
+            task=ModelTask.TEXT_GENERATION,
+        ),
+        AvailableModel(
+            hf_model_id="TRnlp/T5-base-MixSub-TS",
+            display_name="T5-base-MixSub-TS",
+            task=ModelTask.TEXT_GENERATION,
+        ),
+        AvailableModel(
+            hf_model_id="facebook/bart-large-cnn",
+            display_name="facebook/bart-large-cnn",
+            task=ModelTask.SUMMARIZATION,
+        ),
+        AvailableModel(
+            hf_model_id="google/gemma-2-2b-it",
+            display_name="google/gemma-2-2b-it",
+            task=ModelTask.TEXT_GENERATION,
+        ),
+    )
+    @view_router.get("/", response_class=HTMLResponse)
+    def home(self, request: Request):
+        return self.templates.TemplateResponse(
+            request,
+            "application.html",
+            {
+                "PageHeading": "Research Highlight Generation",
+                "Models": self.available_models,
+            },
+        )
