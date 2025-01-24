@@ -33,13 +33,17 @@ class ApisCBV:
         headers = {
             "Authorization": f"Bearer {self.__authorization_token}",
         }
-        response = requests.post(
-            api_url,
-            headers=headers,
-            json=payload,
-            timeout=self.__timeout_in_seconds,
-        )
-        return response.json()
+        try:
+            response = requests.post(
+                api_url,
+                headers=headers,
+                json=payload,
+                timeout=self.__timeout_in_seconds,
+            )
+            return response.json()
+        except Exception as err:
+            print("Error Occurred: ", err.__repr__(), file=sys.stderr)
+            raise err
 
     @apis_router.post("/generate")
     def summarize(self, body: SummarizationRequest) -> SummarizationResponse:
@@ -74,6 +78,9 @@ class ApisCBV:
                 },
             )
 
+            if "error" in resp:
+                raise Exception(resp)
+
             if body.inference_task == ModelTask.SUMMARIZATION:
                 out_text = resp[0]["summary_text"]
             elif body.inference_task == ModelTask.TEXT_GENERATION:
@@ -94,11 +101,11 @@ class ViewCBV:
     templates = Jinja2Templates("templates")
 
     available_models = (
-        #AvailableModel(
-            #hf_model_id="TRnlp/LLAMA-3-8B-TS-MixSub",
-            #display_name="LLAMA-3-8B-TS-MixSub",
-            #task=ModelTask.TEXT_GENERATION,
-        #),
+        AvailableModel(
+            hf_model_id="TRnlp/LLAMA-3-8B-TS-MixSub",
+            display_name="LLAMA-3-8B-TS-MixSub",
+            task=ModelTask.TEXT_GENERATION,
+        ),
         AvailableModel(
             hf_model_id="TRnlp/BART-base-MixSub-TS",
             display_name="BART-base-MixSub-TS",
@@ -110,6 +117,7 @@ class ViewCBV:
             task=ModelTask.TEXT_GENERATION,
         ),
     )
+
     @view_router.get("/", response_class=HTMLResponse)
     def home(self, request: Request):
         return self.templates.TemplateResponse(
