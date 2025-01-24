@@ -93,7 +93,7 @@ class ApisCBV:
 class ViewCBV:
     templates = Jinja2Templates("templates")
 
-     #available_models = (
+     available_models = (
         #AvailableModel(
             #hf_model_id="TRnlp/LLAMA-3-8B-TS-MixSub",
             #display_name="LLAMA-3-8B-TS-MixSub",
