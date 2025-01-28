@@ -101,11 +101,11 @@ class ViewCBV:
     templates = Jinja2Templates("templates")
 
     available_models = (
-        AvailableModel(
-            hf_model_id="TRnlp/LLAMA-3-8B-TS-MixSub",
-            display_name="LLAMA-3-8B-TS-MixSub",
-            task=ModelTask.TEXT_GENERATION,
-        ),
+        #AvailableModel(
+            #hf_model_id="TRnlp/LLAMA-3-8B-TS-MixSub",
+            #display_name="LLAMA-3-8B-TS-MixSub",
+            #task=ModelTask.TEXT_GENERATION,
+        #),
         AvailableModel(
             hf_model_id="TRnlp/BART-base-MixSub-TS",
             display_name="BART-base-MixSub-TS",
