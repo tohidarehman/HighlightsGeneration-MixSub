@@ -57,7 +57,7 @@ class ApisCBV:
         model_name = body.preferred_model
         maximum_tokens = body.maximum_tokens
 
-        prefix = "Summarize the following article: "
+        prefix = "Summarize: "
         text_with_prefix = prefix + input_text
 
         if body.inference_task == ModelTask.TEXT_GENERATION:
