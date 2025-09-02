@@ -119,7 +119,7 @@ class ViewCBV:
         ),
         AvailableModel(
             #hf_model_id="TRnlp/T5-base-MixSub-TS",
-            hf_model_id="google-t5/t5-base",
+            hf_model_id="facebook/bart-large-cnn",
             display_name="T5-base-MixSub-TS",
             task=ModelTask.TEXT_GENERATION,
         ),
