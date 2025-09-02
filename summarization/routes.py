@@ -112,7 +112,8 @@ class ViewCBV:
             task=ModelTask.TEXT_GENERATION,
         ),
         AvailableModel(
-            hf_model_id="TRnlp/T5-base-MixSub-TS",
+            #hf_model_id="TRnlp/T5-base-MixSub-TS",
+            hf_model_id="google-t5/t5-base",
             display_name="T5-base-MixSub-TS",
             task=ModelTask.TEXT_GENERATION,
         ),
