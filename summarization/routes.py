@@ -1,12 +1,12 @@
-from fastapi import APIRouter, HTTPException, status, Request
-from fastapi.templating import Jinja2Templates
+from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse
-
+from fastapi.templating import Jinja2Templates
 from fastapi_utils.cbv import cbv
-import os
 import re
 import sys
-import requests
+
+from transformers import pipeline
+
 from .models import (
     SummarizationRequest,
     SummarizationResponse,
@@ -14,51 +14,30 @@ from .models import (
     ModelTask,
 )
 
-
+# Routers
 apis_router = APIRouter(prefix="/api")
-view_router = APIRouter()  # This is mounted with the root route i.e. '/'
+view_router = APIRouter()  # Root route '/'
+
+# Load models locally at startup
+print("Loading Hugging Face models locally...", file=sys.stderr)
+summarizer_bart = pipeline("summarization", model="facebook/bart-large-cnn")
+print("Models loaded successfully ✅", file=sys.stderr)
 
 
 @cbv(apis_router)
 class ApisCBV:
-    def __init__(self):
-        self.__timeout_in_seconds = 180
-        self.__authorization_token = os.getenv("HF_TOKEN")
-
     def remove_comma_after_full_stop(self, text: str):
         return re.sub(r"\.\;", ".", text)
 
-    def query(self, model_name: str, payload):
-        api_url = f"https://api-inference.huggingface.co/models/{model_name}"
-        headers = {
-            "Authorization": f"Bearer {self.__authorization_token}",
-        }
-        try:
-            response = requests.post(
-                api_url,
-                headers=headers,
-                json=payload,
-                timeout=self.__timeout_in_seconds,
-            )
-            #return response.json() #TR
-            print("STATUS:", response.status_code, file=sys.stderr)
-            print("RESPONSE:", response.text[:300], file=sys.stderr)
-            try:
-                return response.json()
-            except Exception:
-                return {"error": f"Non-JSON: {response.text}"}
-        except Exception as err: 
-            print("Error Occurred: ", err.__repr__(), file=sys.stderr)
-            raise err
+    def query_local(self, model_name: str, text: str, maximum_tokens: int):
+        """Run summarization locally."""
+        if "BART" in model_name:
+            return summarizer_bart(text, max_length=maximum_tokens)
+        else:
+            raise ValueError(f"Unsupported model: {model_name}")
 
     @apis_router.post("/generate")
     def summarize(self, body: SummarizationRequest) -> SummarizationResponse:
-        if self.__authorization_token is None:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="HuggingFace Inference Endpoint Token Missing",
-            )
-
         input_text = body.paper_content
         model_name = body.preferred_model
         maximum_tokens = body.maximum_tokens
@@ -66,33 +45,9 @@ class ApisCBV:
         prefix = "summarize: "
         text_with_prefix = prefix + input_text
 
-        if body.inference_task == ModelTask.TEXT_GENERATION:
-            parameters = {
-                "max_new_tokens": maximum_tokens,
-                "do_sample": False,
-                # "return_full_text": False,
-            }
-        else:
-            parameters = {}
-
         try:
-            resp = self.query(
-                model_name,
-                {
-                    "inputs": text_with_prefix,
-                    "parameters": parameters,
-                },
-            )
-
-            if "error" in resp:
-                raise Exception(resp)
-
-            if body.inference_task == ModelTask.SUMMARIZATION:
-                out_text = resp[0]["summary_text"]
-            elif body.inference_task == ModelTask.TEXT_GENERATION:
-                out_text = resp[0]["generated_text"]
-            else:
-                out_text = "`summary_text` or `generated_text` not present."
+            resp = self.query_local(model_name, text_with_prefix, maximum_tokens)
+            out_text = resp[0]["summary_text"]
 
         except Exception as err:
             print("Error Occurred: ", err.__repr__(), file=sys.stderr)
@@ -107,21 +62,10 @@ class ViewCBV:
     templates = Jinja2Templates("templates")
 
     available_models = (
-        #AvailableModel(
-            #hf_model_id="TRnlp/LLAMA-3-8B-TS-MixSub",
-            #display_name="LLAMA-3-8B-TS-MixSub",
-            #task=ModelTask.TEXT_GENERATION,
-        #),
         AvailableModel(
             hf_model_id="facebook/bart-large-cnn",
-            display_name="BART-base-MixSub-TS",
+            display_name="BART-large-CNN",
             task=ModelTask.SUMMARIZATION,
-        ),
-        AvailableModel(
-            #hf_model_id="TRnlp/T5-base-MixSub-TS",
-            hf_model_id="facebook/bart-large-cnn",
-            display_name="T5-base-MixSub-TS",
-            task=ModelTask.TEXT_GENERATION,
         ),
     )
 
