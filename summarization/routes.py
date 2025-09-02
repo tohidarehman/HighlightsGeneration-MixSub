@@ -40,10 +40,16 @@ class ApisCBV:
                 json=payload,
                 timeout=self.__timeout_in_seconds,
             )
-            return response.json()
-        except Exception as err:
-            print("Error Occurred: ", err.__repr__(), file=sys.stderr)
-            raise err
+            #return response.json() #TR
+            print("STATUS:", response.status_code, file=sys.stderr)
+            print("RESPONSE:", response.text[:300], file=sys.stderr)
+            try:
+                return response.json()
+            except Exception:
+                return {"error": f"Non-JSON: {response.text}"}
+        #except Exception as err: #TR
+            #print("Error Occurred: ", err.__repr__(), file=sys.stderr)
+            #raise err
 
     @apis_router.post("/generate")
     def summarize(self, body: SummarizationRequest) -> SummarizationResponse:
