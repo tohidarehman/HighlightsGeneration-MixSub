@@ -113,9 +113,9 @@ class ViewCBV:
             #task=ModelTask.TEXT_GENERATION,
         #),
         AvailableModel(
-            hf_model_id="TRnlp/BART-base-MixSub-TS",
+            hf_model_id="facebook/bart-large-cnn",
             display_name="BART-base-MixSub-TS",
-            task=ModelTask.TEXT_GENERATION,
+            task=ModelTask.SUMMARIZATION,
         ),
         AvailableModel(
             #hf_model_id="TRnlp/T5-base-MixSub-TS",
